@@ -9,7 +9,7 @@ Map each Cursor name in a skill with these tables. Facts checked on Codex CLI 0.
 | `Task` | `spawn_agent` with `message` (the brief) and `task_name` (lowercase letters, digits, and underscores), then `wait_agent` (`timeout_ms` up to 3600000). Use `close_agent` when you have it. Fallback: without `spawn_agent`, follow the brief yourself in this session, one brief at a time, and say so. |
 | `AskQuestion` | `request_user_input` in an interactive session. Fallback: in `codex exec` or any run without a user, do not call it. Make the choice that the skill gives as its default, or the safest choice, and say which. |
 | Open a todolist, or copy steps into the todolist tool | `update_plan`. Fallback: without it, keep the list in your reply and update it at each phase. |
-| Run another pstack skill (`/name` or "the **name** skill") | Read `~/.agents/skills/<name>/SKILL.md` and follow it. When you tell the user to run it, write `$<name>`. |
+| Run another pstack skill (`/name` or "the **name** skill") | Read `~/.agents/skills/<name>/SKILL.md` and follow it. For "the **x** principle skill", the folder is `principle-x`. When you tell the user to run it, write `$<name>`. |
 | `poteto-mode` | Read `poteto-subagents.md` in the cursor-harness folder. The rest of `poteto-mode` is not installed. |
 
 ## Subagent fields
@@ -34,6 +34,7 @@ Map each Cursor name in a skill with these tables. Facts checked on Codex CLI 0.
 | `claude-<family>-<version>-<effort>[-fast]` | Fallback: Codex runs only OpenAI models. Omit `model`, keep `reasoning_effort`, and say that the seat runs on the session model. |
 | `gemini-*` or `grok-` slugs | Fallback: omit `model` and say so. |
 | `auto` or `inherit-parent` | Omit `model`. |
+| `/setup-pstack` | Fallback: setup-pstack is not installed. Do not ask the user to run it. Use the lines in `~/.config/pstack/models.md` when the file exists, else the skill's default slugs. The user edits that file by hand. |
 | `pstack-models.mdc`, `~/.cursor/rules/pstack-models.mdc` | Read `~/.config/pstack/models.md`. If the file or the role's line is missing, use the skill's default slug, mapped with these rows. |
 
 ## Paths

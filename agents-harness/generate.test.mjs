@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +36,7 @@ function fixture(t, files, { adapter = true } = {}) {
 }
 
 const skill = (name, body, extra = "") => `---\nname: ${name}\ndescription: test\n${extra}---\n${body}`;
-const text = (out, path) => out.get(path)?.toString("utf8");
+const text = (out, path) => out.get(path)?.bytes.toString("utf8");
 
 test("adds the adapter line after the H1 of a skill that uses a Cursor name", (t) => {
   const root = fixture(t, { "pstack/skills/arena/SKILL.md": skill("arena", "# Arena\n\nSpawn with the `Task` tool.\n") });
@@ -111,6 +111,43 @@ test("fails when the poteto-mode Subagents section is gone", (t) => {
   assert.throws(() => render(root, []), /Subagents/);
 });
 
+test("keeps the execute bit of a copied script", (t) => {
+  const root = fixture(t, {
+    "pstack/skills/show-me-your-work/SKILL.md": skill("show-me-your-work", "# Show\n"),
+    "pstack/skills/show-me-your-work/scripts/log.sh": "#!/bin/sh\n",
+  });
+  chmodSync(join(root, "pstack/skills/show-me-your-work/scripts/log.sh"), 0o755);
+  const out = render(root, [{ name: "show-me-your-work", from: "pstack" }]);
+  assert.equal(out.get("show-me-your-work/scripts/log.sh").executable, true);
+  assert.equal(out.get("show-me-your-work/SKILL.md").executable, false);
+});
+
+test("fails when a skill names an unchosen principle skill", (t) => {
+  const root = fixture(t, {
+    "pstack/skills/principle-prove-it-works/SKILL.md": skill("principle-prove-it-works", "# Prove it works\n"),
+    "pstack/skills/arena/SKILL.md": skill("arena", "# Arena\n\nApply the **prove-it-works** principle skill.\n"),
+  });
+  assert.throws(() => render(root, [{ name: "arena", from: "pstack" }]), /principle-prove-it-works/);
+});
+
+test("allows a chosen principle skill named in the principle form", (t) => {
+  const root = fixture(t, {
+    "pstack/skills/principle-prove-it-works/SKILL.md": skill("principle-prove-it-works", "# Prove it works\n"),
+    "pstack/skills/arena/SKILL.md": skill("arena", "# Arena\n\nApply the **prove-it-works** principle skill.\n"),
+  });
+  const out = render(root, [{ name: "arena", from: "pstack" }, { name: "principle-prove-it-works", from: "pstack" }]);
+  assert.match(text(out, "arena/SKILL.md"), /cursor-harness/);
+});
+
+test("the real chosen skills name no skill outside the tree", () => {
+  const chosen = JSON.parse(real("skills.json")).skills;
+  const names = new Set(chosen.map((item) => item.name));
+  for (const required of ["principle-type-system-discipline", "principle-boundary-discipline", "principle-encode-lessons-in-structure",
+    "principle-prove-it-works", "principle-redesign-from-first-principles", "principle-separate-before-serializing-shared-state"]) {
+    assert.ok(names.has(required), required);
+  }
+});
+
 test("writes agents/openai.yaml for disable-model-invocation: true", (t) => {
   const root = fixture(t, { "pstack/skills/why/SKILL.md": skill("why", "# Why\n", "disable-model-invocation: true\n") });
   assert.equal(text(render(root, [{ name: "why", from: "pstack" }]), "why/agents/openai.yaml"), "policy:\n  allow_implicit_invocation: false\n");
@@ -178,7 +215,10 @@ test("the committed tree matches a fresh render", () => {
   const dir = join(REPO, "agents-harness/skills");
   const committed = existsSync(dir) ? walkFiles(dir).map((path) => relative(dir, path)) : [];
   assert.deepEqual(committed.sort(), [...out.keys()].sort());
-  for (const [path, bytes] of out) assert.ok(readFileSync(join(dir, path)).equals(bytes), path);
+  for (const [path, { bytes, executable }] of out) {
+    assert.ok(readFileSync(join(dir, path)).equals(bytes), path);
+    assert.equal((statSync(join(dir, path)).mode & 0o111) !== 0, executable, `${path} execute bit`);
+  }
 });
 
 function walkFiles(dir) {

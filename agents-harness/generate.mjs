@@ -3,7 +3,7 @@
 // into ~/.agents/skills for Codex and Claude Code, plus the cursor-harness adapter skill that maps their Cursor names.
 // Upstream files are only read, never changed, so upstream merges do not conflict with this folder.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -93,8 +93,13 @@ function poteToSubagents(root) {
   return section.replace(/\n+$/, "\n");
 }
 
+/** A file's bytes and whether it is executable (mode 755 in git, else 644). */
+function file(path) {
+  return { bytes: readFileSync(path), executable: (statSync(path).mode & 0o111) !== 0 };
+}
+
 /**
- * The generated tree, as paths relative to agents-harness/skills/ and their bytes. root is the repository root;
+ * The generated tree, as paths relative to agents-harness/skills/ and their files ({bytes, executable}). root is the repository root;
  * chosen is [{name, from}], from "pstack" or "cursor-team-kit". Each problem throws an Error that names it.
  */
 export function render(root, chosen) {
@@ -110,6 +115,8 @@ export function render(root, chosen) {
   const names = new Set(chosen.map((item) => item.name));
   const others = [...upstream.keys()].map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const route = others && new RegExp(`the \\*\\*(${others})\\*\\* skill|\`/(${others})\``, "g");
+  // "the **x** principle skill" names the folder principle-x.
+  const principle = /\*\*([a-z0-9-]+)\*\* principle skills?\b/g;
   const out = new Map();
   const used = new Map();
   const use = (key, skill) => used.set(key, [...(used.get(key) ?? []), skill]);
@@ -122,16 +129,20 @@ export function render(root, chosen) {
     let wrap = false;
     for (const path of walk(folder)) {
       const rel = relative(folder, path).split("\\").join("/");
-      let bytes = readFileSync(path);
+      const copy = file(path);
       if (path.endsWith(".md")) {
-        let text = bytes.toString("utf8");
+        let text = copy.bytes.toString("utf8");
         for (const term of TERMS) if (term.re.test(text)) {wrap = true; use(term.key, name);}
-        for (const match of route ? text.matchAll(route) : []) {
-          const other = match[1] ?? match[2];
+        const named = [
+          ...(route ? [...text.matchAll(route)].map((match) => match[1] ?? match[2]) : []),
+          ...[...text.matchAll(principle)].map((match) => `principle-${match[1]}`),
+        ];
+        for (const other of named) {
           if (other === name) continue;
           wrap = true;
           if (names.has(other)) use(ROUTE_KEY, name);
           else if (mapped(other)) use(other, name);
+          else if (!upstream.has(other)) throw new Error(`${name} names the ${other} skill, which is not upstream`);
           else throw new Error(`${name} names the ${other} skill, which is not chosen and has no adapter row`);
         }
         text = text.replace(LINK, (whole, href) => {
@@ -144,20 +155,20 @@ export function render(root, chosen) {
           if (existsSync(join(root, inRepo))) return `](${FORK}/${inRepo}${href.slice(target.length)})`;
           throw new Error(`${name}/${rel} links to ${href}, which is outside the skill and not in the repository`);
         });
-        bytes = Buffer.from(text);
+        copy.bytes = Buffer.from(text);
       }
-      out.set(`${name}/${rel}`, bytes);
+      out.set(`${name}/${rel}`, copy);
     }
-    const skill = out.get(`${name}/SKILL.md`).toString("utf8");
+    const skill = out.get(`${name}/SKILL.md`).bytes.toString("utf8");
     const frontmatter = /^---\n([\s\S]*?)\n---/.exec(skill)?.[1] ?? "";
     const declared = /^name:(.*)$/m.exec(frontmatter)?.[1].trim().replace(/^(["'])(.*)\1$/, "$2");
     if (declared !== name) throw new Error(`${dir}/${name}/SKILL.md has name ${JSON.stringify(declared ?? "")}, not ${name}`);
     if (wrap) {
       if (!/^# /m.test(skill)) throw new Error(`${dir}/${name}/SKILL.md uses Cursor names but has no H1 for the adapter line`);
-      out.set(`${name}/SKILL.md`, Buffer.from(skill.replace(/^(# .*)\n+/m, `$1\n\n${LINE}\n\n`)));
+      out.get(`${name}/SKILL.md`).bytes = Buffer.from(skill.replace(/^(# .*)\n+/m, `$1\n\n${LINE}\n\n`));
     }
     if (/^disable-model-invocation:\s*true\s*$/m.test(frontmatter)) {
-      out.set(`${name}/agents/openai.yaml`, Buffer.from("policy:\n  allow_implicit_invocation: false\n"));
+      out.set(`${name}/agents/openai.yaml`, { bytes: Buffer.from("policy:\n  allow_implicit_invocation: false\n"), executable: false });
     }
   }
 
@@ -166,8 +177,8 @@ export function render(root, chosen) {
       if (!target(adapters[file], key)) throw new Error(`${ADAPTER}/${file} has no mapping for ${key}, used by ${skills.join(", ")}`);
     }
   }
-  for (const path of walk(join(root, ADAPTER))) out.set(`cursor-harness/${relative(join(root, ADAPTER), path).split("\\").join("/")}`, readFileSync(path));
-  out.set("cursor-harness/poteto-subagents.md", Buffer.from(poteToSubagents(root)));
+  for (const path of walk(join(root, ADAPTER))) out.set(`cursor-harness/${relative(join(root, ADAPTER), path).split("\\").join("/")}`, file(path));
+  out.set("cursor-harness/poteto-subagents.md", { bytes: Buffer.from(poteToSubagents(root)), executable: false });
   return out;
 }
 
@@ -179,8 +190,9 @@ function main(argv) {
   if (argv.includes("--check")) {
     const existing = existsSync(outDir) ? walk(outDir).map((path) => relative(outDir, path).split("\\").join("/")) : [];
     const drifted = [...new Set([...existing, ...tree.keys()])].sort().filter((path) => {
-      const file = join(outDir, path);
-      return !tree.has(path) || !existsSync(file) || !readFileSync(file).equals(tree.get(path));
+      if (!tree.has(path) || !existsSync(join(outDir, path))) return true;
+      const committed = file(join(outDir, path)), fresh = tree.get(path);
+      return !committed.bytes.equals(fresh.bytes) || committed.executable !== fresh.executable;
     });
     for (const path of drifted) console.log(`agents-harness/skills/${path}`);
     if (drifted.length) {
@@ -191,9 +203,10 @@ function main(argv) {
     return 0;
   }
   rmSync(outDir, { recursive: true, force: true });
-  for (const [path, bytes] of tree) {
+  for (const [path, { bytes, executable }] of tree) {
     mkdirSync(dirname(join(outDir, path)), { recursive: true });
     writeFileSync(join(outDir, path), bytes);
+    chmodSync(join(outDir, path), executable ? 0o755 : 0o644);
   }
   console.log(`${chosen.length} skills and cursor-harness written to agents-harness/skills`);
   return 0;

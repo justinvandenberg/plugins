@@ -9,7 +9,7 @@ Map each Cursor name in a skill with these tables. Based on upstream `pstack/doc
 | `Task` | `Agent`. Fallback: without `Agent`, follow the brief yourself in this session, one brief at a time, and say so. |
 | `AskQuestion` | `AskUserQuestion`. Fallback: in `-p` mode it is absent; make the choice that the skill gives as its default, or ask in plain text when a user can answer. |
 | Open a todolist, or copy steps into the todolist tool | `TodoWrite` if the session offers it. Fallback: keep the list in your reply and update it at each phase. |
-| Run another pstack skill (`/name` or "the **name** skill") | Read `~/.agents/skills/<name>/SKILL.md` and follow it. When you tell the user to run it, write `/<name>`. |
+| Run another pstack skill (`/name` or "the **name** skill") | Read `~/.agents/skills/<name>/SKILL.md` and follow it. For "the **x** principle skill", the folder is `principle-x`. When you tell the user to run it, write `/<name>`. |
 | `poteto-mode` | Read `poteto-subagents.md` in the cursor-harness folder. The rest of `poteto-mode` is not installed. |
 | `Grep`, `Glob` | `Bash` with `rg` when the session has no `Grep` or `Glob`. |
 
@@ -34,6 +34,7 @@ Map each Cursor name in a skill with these tables. Based on upstream `pstack/doc
 | `claude-<family>-<version>-<effort>[-fast]`, such as `claude-opus-5-5-xhigh` | `model: "opus"` and `effort: "xhigh"`. `model` takes only `opus`, `sonnet`, `haiku`, `fable`. Drop `-fast`. |
 | `gpt-`, `gemini-*`, or `grok-` slugs | Fallback: Claude Code runs only Claude models. Omit `model` so the agent runs on the session model, and say so. |
 | `auto` or `inherit-parent` | Omit `model`. |
+| `/setup-pstack` | Fallback: setup-pstack is not installed. Do not ask the user to run it. Use the lines in `~/.config/pstack/models.md` when the file exists, else the skill's default slugs. The user edits that file by hand. |
 | `pstack-models.mdc`, `~/.cursor/rules/pstack-models.mdc` | Read `~/.config/pstack/models.md`. If the file or the role's line is missing, use the skill's default slug, mapped with these rows. |
 
 ## Paths

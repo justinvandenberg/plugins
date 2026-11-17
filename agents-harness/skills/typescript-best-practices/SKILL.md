@@ -7,6 +7,8 @@ disable-model-invocation: true
 
 # TypeScript best practices
 
+Before you follow this skill, read the `cursor-harness` skill (`~/.agents/skills/cursor-harness/SKILL.md`) once per session. It maps the Cursor names in this skill to your agent.
+
 Apply the **type-system-discipline** principle skill first.
 
 | Rule | Summary |
