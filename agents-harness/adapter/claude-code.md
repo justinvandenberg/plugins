@@ -34,8 +34,8 @@ Map each Cursor name in a skill with these tables. Based on upstream `pstack/doc
 | `claude-<family>-<version>-<effort>[-fast]`, such as `claude-opus-5-5-xhigh` | `model: "opus"` and `effort: "xhigh"`. `model` takes only `opus`, `sonnet`, `haiku`, `fable`. Drop `-fast`. |
 | `gpt-`, `gemini-*`, or `grok-` slugs | Fallback: Claude Code runs only Claude models. Omit `model` so the agent runs on the session model, and say so. |
 | `auto` or `inherit-parent` | Omit `model`. |
-| `/setup-pstack` | Fallback: setup-pstack is not installed. Do not ask the user to run it. Use the lines in `~/.config/pstack/models.md` when the file exists, else the skill's default slugs. The user edits that file by hand. |
-| `pstack-models.mdc`, `~/.cursor/rules/pstack-models.mdc` | Read `~/.config/pstack/models.md`. If the file or the role's line is missing, use the skill's default slug, mapped with these rows. |
+| `/setup-pstack` | Skip: setup-pstack is not installed. Use the skill's default slugs, mapped with these rows. |
+| `pstack-models.mdc`, `~/.cursor/rules/pstack-models.mdc` | Fallback: there is no model file. Use the skill's default slug for each role, mapped with these rows. |
 
 ## Paths
 

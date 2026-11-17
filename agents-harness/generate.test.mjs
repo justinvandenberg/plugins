@@ -68,25 +68,7 @@ test("fails when the frontmatter name is not the folder name", (t) => {
   assert.throws(() => render(root, [{ name: "how", from: "pstack" }]), /not-how/);
 });
 
-test("rewrites a link to a sibling skill to ~/.agents/skills", (t) => {
-  const root = fixture(t, {
-    "pstack/skills/arena/SKILL.md": skill("arena", "# Arena\n"),
-    "pstack/skills/interrogate/SKILL.md": skill("interrogate", "# Interrogate\n\nSee [arena](../arena/SKILL.md).\n"),
-  });
-  const out = render(root, [{ name: "arena", from: "pstack" }, { name: "interrogate", from: "pstack" }]);
-  assert.match(text(out, "interrogate/SKILL.md"), /\(~\/\.agents\/skills\/arena\/SKILL\.md\)/);
-});
-
-test("rewrites a link to another upstream file to the fork URL", (t) => {
-  const root = fixture(t, {
-    "pstack/docs/guide/README.md": "guide\n",
-    "pstack/skills/how/SKILL.md": skill("how", "# How\n\nSee [the guide](../../docs/guide/README.md).\n"),
-  });
-  assert.match(text(render(root, [{ name: "how", from: "pstack" }]), "how/SKILL.md"),
-    /\(https:\/\/github\.com\/justinvandenberg\/plugins\/blob\/main\/pstack\/docs\/guide\/README\.md\)/);
-});
-
-test("fails on a link that leaves the skill folder to a missing file", (t) => {
+test("fails on a link that leaves the skill folder", (t) => {
   const root = fixture(t, { "pstack/skills/how/SKILL.md": skill("how", "# How\n\nSee [x](../../nowhere.md).\n") });
   assert.throws(() => render(root, [{ name: "how", from: "pstack" }]), /nowhere\.md/);
 });
@@ -146,6 +128,12 @@ test("the real chosen skills name no skill outside the tree", () => {
     "principle-prove-it-works", "principle-redesign-from-first-principles", "principle-separate-before-serializing-shared-state"]) {
     assert.ok(names.has(required), required);
   }
+});
+
+test("keeps a link inside the skill folder", (t) => {
+  const source = skill("how", "# How\n\nSee [the reference](references/a.md) and [the web](https://example.com).\n");
+  const root = fixture(t, { "pstack/skills/how/SKILL.md": source, "pstack/skills/how/references/a.md": "a\n" });
+  assert.equal(text(render(root, [{ name: "how", from: "pstack" }]), "how/SKILL.md"), source);
 });
 
 test("writes agents/openai.yaml for disable-model-invocation: true", (t) => {

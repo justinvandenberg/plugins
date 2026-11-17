@@ -8,7 +8,6 @@ import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FORK = "https://github.com/justinvandenberg/plugins/blob/main";
 const SOURCES = { pstack: "pstack/skills", "cursor-team-kit": "cursor-team-kit/skills" };
 const ADAPTER = "agents-harness/adapter";
 const ADAPTER_FILES = ["codex.md", "claude-code.md"];
@@ -131,7 +130,7 @@ export function render(root, chosen) {
       const rel = relative(folder, path).split("\\").join("/");
       const copy = file(path);
       if (path.endsWith(".md")) {
-        let text = copy.bytes.toString("utf8");
+        const text = copy.bytes.toString("utf8");
         for (const term of TERMS) if (term.re.test(text)) {wrap = true; use(term.key, name);}
         const named = [
           ...(route ? [...text.matchAll(route)].map((match) => match[1] ?? match[2]) : []),
@@ -145,17 +144,13 @@ export function render(root, chosen) {
           else if (!upstream.has(other)) throw new Error(`${name} names the ${other} skill, which is not upstream`);
           else throw new Error(`${name} names the ${other} skill, which is not chosen and has no adapter row`);
         }
-        text = text.replace(LINK, (whole, href) => {
+        // A skill installs as one folder, so a relative link out of it breaks. No chosen skill has one; fail if one appears.
+        for (const [, href] of text.matchAll(LINK)) {
           const target = href.replace(/[#?].*/, "");
-          if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target) || href.startsWith("~") || href.startsWith("#")) return whole;
-          const inRepo = posix.normalize(posix.join(dir, name, posix.dirname(rel), target));
-          if (inRepo.startsWith(`${dir}/${name}/`)) return whole;
-          const sibling = inRepo.startsWith(`${dir}/`) ? inRepo.slice(dir.length + 1).split("/")[0] : null;
-          if (sibling && names.has(sibling)) return `](~/.agents/skills/${inRepo.slice(dir.length + 1)}${href.slice(target.length)})`;
-          if (existsSync(join(root, inRepo))) return `](${FORK}/${inRepo}${href.slice(target.length)})`;
-          throw new Error(`${name}/${rel} links to ${href}, which is outside the skill and not in the repository`);
-        });
-        copy.bytes = Buffer.from(text);
+          if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target) || href.startsWith("~")) continue;
+          if (!posix.normalize(posix.join(posix.dirname(rel), target)).startsWith("../")) continue;
+          throw new Error(`${name}/${rel} links to ${href}, which is outside the skill folder`);
+        }
       }
       out.set(`${name}/${rel}`, copy);
     }

@@ -28,7 +28,3 @@ Read the file for your agent once per session. Then, for each Cursor name in a s
 - If a Cursor name has no row, drop it and say so. Never pass a field or a value that the tool schema rejects.
 
 `poteto-subagents.md` in this folder is the Subagents section of pstack's `poteto-mode` skill. Some skills point to it to pick each subagent's model and reasoning level.
-
-## Model roles
-
-Skills read model roles, such as `arena runners`, from a model file. Both agents read `~/.config/pstack/models.md`. Each line is `<role>: <model> <effort>`, such as `arena runners: gpt-6.1-sol high`. When the file or the role's line is missing, use the skill's default, mapped with the Models rows.
