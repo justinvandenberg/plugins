@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { adapterRows, LINE, render, TERMS } from "./generate.mjs";
 
@@ -141,6 +141,52 @@ test("a used key with an empty target fails", (t) => {
   });
   assert.throws(() => render(root, [{ name: "arena", from: "pstack" }]), /codex\.md.*`Task`/);
 });
+
+const real = (path) => readFileSync(join(REPO, "agents-harness", path), "utf8");
+const KEYS = [...TERMS.map((term) => term.key), "Run another pstack skill", "poteto-mode"];
+
+for (const file of ["codex.md", "claude-code.md"]) {
+  test(`${file} maps every Cursor term with a non-empty target`, () => {
+    const rows = adapterRows(real(`adapter/${file}`));
+    const missing = KEYS.filter((key) => ![...rows].some(([cell, value]) => cell.includes(key) && value));
+    assert.deepEqual(missing, []);
+  });
+}
+
+test("codex.md has a fallback for spawn_agent and request_user_input", () => {
+  const rows = adapterRows(real("adapter/codex.md"));
+  assert.match(rows.get("`Task`"), /Fallback:/);
+  assert.match(rows.get("`AskQuestion`"), /Fallback:/);
+});
+
+test("SKILL.md selects the agent without a tool check", () => {
+  const skill = real("adapter/SKILL.md");
+  assert.match(skill, /CLAUDECODE/);
+  assert.match(skill, /CODEX_THREAD_ID/);
+  assert.doesNotMatch(skill, /If your tools include/);
+});
+
+test("the real skill list renders", () => {
+  const chosen = JSON.parse(real("skills.json")).skills;
+  const out = render(REPO, chosen);
+  for (const { name } of chosen) assert.ok(out.has(`${name}/SKILL.md`), name);
+});
+
+test("the committed tree matches a fresh render", () => {
+  const chosen = JSON.parse(real("skills.json")).skills;
+  const out = render(REPO, chosen);
+  const dir = join(REPO, "agents-harness/skills");
+  const committed = existsSync(dir) ? walkFiles(dir).map((path) => relative(dir, path)) : [];
+  assert.deepEqual(committed.sort(), [...out.keys()].sort());
+  for (const [path, bytes] of out) assert.ok(readFileSync(join(dir, path)).equals(bytes), path);
+});
+
+function walkFiles(dir) {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? walkFiles(path) : [path];
+  });
+}
 
 test("TERMS has every key in the upstream generator", () => {
   const upstream = readFileSync(join(REPO, "scripts/generate-pstack-harness-trees.mjs"), "utf8");
