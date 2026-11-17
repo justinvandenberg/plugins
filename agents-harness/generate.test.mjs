@@ -184,6 +184,21 @@ test("codex.md has a fallback for spawn_agent and request_user_input", () => {
   assert.match(rows.get("`AskQuestion`"), /Fallback:/);
 });
 
+test("claude-code.md keeps the family and effort of a Claude slug", () => {
+  const rows = adapterRows(real("adapter/claude-code.md"));
+  const model = [...rows].find(([cell]) => cell.includes("claude-"))[1];
+  assert.match(model, /model: "<family>"/);
+  assert.match(model, /effort: "<effort>"/);
+  assert.doesNotMatch(model, /^`model: "opus"`/);
+});
+
+test("each adapter finds the current transcript by session ID", () => {
+  const find = (file) => [...adapterRows(real(`adapter/${file}`))].find(([cell]) => cell.includes("agent-transcripts"))[1];
+  assert.match(find("claude-code.md"), /\$CLAUDE_CODE_SESSION_ID/);
+  assert.doesNotMatch(find("claude-code.md"), /newest `\.jsonl`/);
+  assert.match(find("codex.md"), /\$CODEX_SESSION_ID/);
+});
+
 test("SKILL.md selects the agent without a tool check", () => {
   const skill = real("adapter/SKILL.md");
   assert.match(skill, /CLAUDECODE/);

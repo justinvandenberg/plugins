@@ -31,7 +31,7 @@ Map each Cursor name in a skill with these tables. Based on upstream `pstack/doc
 
 | Cursor | Claude Code |
 | --- | --- |
-| `claude-<family>-<version>-<effort>[-fast]`, such as `claude-opus-5-5-xhigh` | `model: "opus"` and `effort: "xhigh"`. `model` takes only `opus`, `sonnet`, `haiku`, `fable`. Drop `-fast`. |
+| `claude-<family>-<version>-<effort>[-fast]`, such as `claude-opus-5-5-xhigh` | `model: "<family>"` and `effort: "<effort>"`, both from the slug: `claude-fable-5-2-high` is `model: "fable"`, `effort: "high"`, and `claude-opus-5-5-high-fast` is `model: "opus"`, `effort: "high"`. `model` takes only `opus`, `sonnet`, `haiku`, `fable`. Drop `-fast`. Never change the family or the effort. |
 | `gpt-`, `gemini-*`, or `grok-` slugs | Fallback: Claude Code runs only Claude models. Omit `model` so the agent runs on the session model, and say so. |
 | `auto` or `inherit-parent` | Omit `model`. |
 | `/setup-pstack` | Skip: setup-pstack is not installed. Use the skill's default slugs, mapped with these rows. |
@@ -44,7 +44,7 @@ Map each Cursor name in a skill with these tables. Based on upstream `pstack/doc
 | `.cursor/skills/`, `~/.cursor/skills/` | `~/.agents/skills/` (linked into `~/.claude/skills/`) |
 | `~/.cursor/plugins/`, `.cursor-plugin/plugin.json` | Skip: these skills are not installed as a plugin. |
 | `.cursor/rules/*.mdc`, always-applied rules | `CLAUDE.md`, or `AGENTS.md` when no `CLAUDE.md` exists. |
-| Transcripts in `~/.cursor/projects/<slug>/agent-transcripts/` | `~/.claude/projects/<slug>/<session>.jsonl`. The slug is the workspace path with each `/` and `.` changed to `-`. The newest `.jsonl` directly in that folder is the current session. Its `<session>/subagents/` folder holds subagent transcripts. Read only this workspace's folder. |
+| Transcripts in `~/.cursor/projects/<slug>/agent-transcripts/` | `~/.claude/projects/<slug>/<session>.jsonl`. The slug is the workspace path with each `/` and `.` changed to `-`. The current session is `$CLAUDE_CODE_SESSION_ID.jsonl` in that folder; other files there can be other chats that run at the same time. Fallback: if `$CLAUDE_CODE_SESSION_ID` is not set, say that you cannot identify the current session, and do not guess. Its `<session>/subagents/` folder holds subagent transcripts. Read only this workspace's folder. |
 
 ## Cursor-only features
 
