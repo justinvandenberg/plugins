@@ -44,7 +44,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -61,15 +60,18 @@ jobs:
           date=$(date -u +%Y-%m-%d)
           branch="justin/chore/sync-upstream-$date"
           log=$(mktemp)
+          # Issues are off in this fork, so a failure goes to the job summary, and the failed run sends the
+          # usual GitHub notification.
           fail() {
             {
-              echo "The weekly upstream sync failed at: $1"
+              echo "## Upstream sync failed"
+              echo
+              echo "Step: \`$1\`"
               echo
               echo '```'
               tail -n 50 "$log"
               echo '```'
-            } > body.md
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "Upstream sync failed $date" --body-file body.md
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           }
           git config user.name "github-actions[bot]"
@@ -94,7 +96,7 @@ jobs:
             echo "The merge changes nothing."
             exit 0
           fi
-          git push -u origin "$branch" > "$log" 2>&1 || fail "git push"
+          git push --force -u origin "$branch" > "$log" 2>&1 || fail "git push"
           {
             echo "Merges cursor/plugins main into this fork and regenerates agents-harness/skills."
             echo
@@ -106,4 +108,19 @@ jobs:
             git diff --stat origin/main HEAD -- agents-harness/skills | tail -n 30
             echo '```'
           } > body.md
-          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "chore: sync upstream cursor/plugins $date" --body-file body.md
+          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            echo "A PR for $branch is already open; the push updated it."
+          elif ! gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "chore: sync upstream cursor/plugins $date" --body-file body.md > "$log" 2>&1; then
+            {
+              echo "## Upstream sync is ready, but the PR was not created"
+              echo
+              echo "The branch passed the checks and was pushed. Open the PR from: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch"
+              echo
+              echo "To let this job open the PR, turn on Settings > Actions > General > Allow GitHub Actions to create and approve pull requests."
+              echo
+              echo '```'
+              tail -n 20 "$log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
