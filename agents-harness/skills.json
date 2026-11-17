@@ -1,0 +1,21 @@
+{
+  "skills": [
+    { "name": "blast-radius", "from": "pstack" },
+    { "name": "interrogate", "from": "pstack" },
+    { "name": "arena", "from": "pstack" },
+    { "name": "in-your-own-words", "from": "pstack" },
+    { "name": "how", "from": "pstack" },
+    { "name": "why", "from": "pstack" },
+    { "name": "unslop", "from": "pstack" },
+    { "name": "typescript-best-practices", "from": "pstack" },
+    { "name": "correct", "from": "pstack" },
+    { "name": "recall", "from": "pstack" },
+    { "name": "show-me-your-work", "from": "pstack" },
+    { "name": "verify-this", "from": "cursor-team-kit" },
+    { "name": "make-pr-easy-to-review", "from": "cursor-team-kit" },
+    { "name": "loop-on-ci", "from": "cursor-team-kit" },
+    { "name": "get-pr-comments", "from": "cursor-team-kit" },
+    { "name": "fix-ci", "from": "cursor-team-kit" },
+    { "name": "review-and-ship", "from": "cursor-team-kit" }
+  ]
+}
